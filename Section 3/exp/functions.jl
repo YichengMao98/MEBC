@@ -9,7 +9,7 @@ function compute_psi!(psi::Vector{Float64}, Istar::Vector{Int}, N::Int;
                       mechanism::Symbol=:memoryless, k_max::Union{Nothing,Int}=nothing,
                       lambda_P::Union{Nothing,Float64}=nothing,
                       lambda_E::Union{Nothing,Float64}=nothing,
-                      lambda_R::Union{Nothing,Float64}=nothing)   # ← 新增参数占位
+                      lambda_R::Union{Nothing,Float64}=nothing)   
     τ = length(Istar)
     psi[1] = 0.0
     if mechanism === :memoryless
@@ -242,12 +242,6 @@ function get_diagonal_variances(online_cov::OnlineCovariance)
     end
 end
 
-# ----------------------------------------------------
-# mcmc_one_chain_with_Rstar! - Single Block Version
-# ----------------------------------------------------
-# ----------------------------------------------------
-# mcmc_one_chain_with_Rstar!  (fixed k_max for :sliding; supports :reciprocal)
-# ----------------------------------------------------
 function mcmc_one_chain_with_Rstar!(Istar_obs::Vector{Int}, N::Int, I0::Int;
                                       fit_mech::Symbol=:memoryless,
                                       n_iter::Int=1_000_000,
@@ -303,7 +297,7 @@ function mcmc_one_chain_with_Rstar!(Istar_obs::Vector{Int}, N::Int, I0::Int;
         # β, α, γ
         initial_stds = [0.005, 0.00005, 0.005]
     else
-        # β, α, γ, (λ 或 λ_R)
+        # β, α, γ, λ
         initial_stds = [0.005, 0.00005, 0.005, 0.005]
     end
     Sigma_initial = Diagonal(initial_stds.^2) / 2
@@ -317,14 +311,11 @@ function mcmc_one_chain_with_Rstar!(Istar_obs::Vector{Int}, N::Int, I0::Int;
 
     t0 = now()
     for i in 1:n_iter
-        # 先做 R* 的 block update
         R, ll = rstar_block_update!(R, Istar_obs, N, I0;
                                     beta=theta_cont[1], alpha=theta_cont[2], gamma=theta_cont[3],
                                     psi=psi, nUpdates=200)
 
         in_adaptation_phase = i <= adaptation_cutoff
-
-        # --- 联合更新连续参数 ---
         theta_prop = copy(theta_cont)
         if in_adaptation_phase
             update_online_cov!(online_cov, theta_cont)
@@ -589,3 +580,4 @@ function write_simulation_stats(path::String, data::Vector{Matrix{Float64}})
     output_matrix = hcat(1:size(data[1], 1), avg_matrix)
     write_csv(path, header, output_matrix)
 end
+
